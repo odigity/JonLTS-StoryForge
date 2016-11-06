@@ -1,8 +1,22 @@
 
+    /* Firebase Initialization */
+
+    var app = firebase.initializeApp({
+        apiKey              : "AIzaSyCwTxqweoW_WlVhod9HNJ1S3QvWccTffJo",
+        authDomain          : "storyforge-e4bd9.firebaseapp.com",
+        databaseURL         : "https://storyforge-e4bd9.firebaseio.com",
+        storageBucket       : "storyforge-e4bd9.appspot.com",
+        messagingSenderId   : "732804594438",
+    });
+
+    /* React-Router Imports */
+
     var BrowserRouter   = ReactRouter.BrowserRouter,
         Link            = ReactRouter.Link,
         Match           = ReactRouter.Match,
         Miss            = ReactRouter.Miss;
+
+    /* Layout */
 
     const App = () => (
         <div id="app">
@@ -32,6 +46,8 @@
         <div id="footer" className="panel">&copy; 2016 Jon Pawelko</div>
     )
 
+    /* Pages */
+
     const Home = () => (
         <div>
             <Welcome />
@@ -55,6 +71,8 @@
     const Browse = () => ( <div><h2>Browse</h2></div> )
     const About  = () => ( <div><h2>About</h2></div> )
 
+    /* Components */
+
     const StoryItem = () => (
         <div className="story-item">
             <img src="/story.png" />
@@ -63,6 +81,8 @@
             <p>description</p>
         </div>
     )
+
+    /* Start App */
 
     ReactDOM.render( <BrowserRouter><App /></BrowserRouter>, document.getElementById('root') );
 
