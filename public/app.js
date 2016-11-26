@@ -1,14 +1,15 @@
 
     /* Firebase Initialization */
 
-    let app = firebase.initializeApp({
+    let APP = firebase.initializeApp({
         apiKey              : "AIzaSyCwTxqweoW_WlVhod9HNJ1S3QvWccTffJo",
         authDomain          : "storyforge-e4bd9.firebaseapp.com",
         databaseURL         : "https://storyforge-e4bd9.firebaseio.com",
         storageBucket       : "storyforge-e4bd9.appspot.com",
         messagingSenderId   : "732804594438",
     });
-    let db = firebase.database(app)
+    let AUTH = firebase.auth(APP);
+    let DB   = firebase.database(APP);
 
     /* React-Router Imports */
 
@@ -25,6 +26,18 @@
         return val;
     }
 
+    function bindToAuth (that) {
+        AUTH.onAuthStateChanged( function (user) {
+            if (user) {
+console.log( 'onAuthStateChanged -> signed in' );
+                that.setState({ user: user });
+            } else {
+console.log( 'onAuthStateChanged -> NOT signed in' );
+                that.setState({ user: null });
+            }
+        });
+    }
+
     /* Layout */
 
     class App extends React.Component {
@@ -34,6 +47,8 @@
                 <Match pattern="/"                component={ HomePage          } exactly />
                 <Match pattern="/about"           component={ AboutPage         } />
                 <Match pattern="/browse"          component={ BrowseStoriesPage } />
+                <Match pattern="/login"           component={ LoginPage         } />
+                <Match pattern="/signup"          component={ SignUpPage        } />
                 <Match pattern="/authors/:author" component={ AuthorPage        } />
                 <Match pattern="/stories/:slug"   component={ StoryPage         } />
                 <Footer />
@@ -42,15 +57,33 @@
     }
 
     class Header extends React.Component {
+        constructor (props) {
+            super(props);
+            this.state = {};
+
+            bindToAuth(this);
+
+            this.handleLogoutClick = this.handleLogoutClick.bind(this)
+        }
+
+        handleLogoutClick (event) {
+            console.log( 'Header.handleLogoutClick' );
+            event.preventDefault();
+            AUTH.signOut();
+        }
+
         render () { return (
             <nav id="header">
                 <ul>
                     <li><Link to="/browse">Browse Stories</Link></li>
-{/*
-                    <li><a href="username1">My Stories</a></li>
-                    <li><a href="new-story">New Story</a></li>
-*/}
+                    { this.state.user && <li><a href="#">My Stories</a></li> }
+                    { this.state.user && <li><a href="#">New Story</a></li> }
                     <li><Link to="/about">About</Link></li>
+                    <li>{ this.state.user ?
+                        <a href="#" onClick={ this.handleLogoutClick }>Logout</a>
+                    :
+                        <Link to="/login">Login</Link>
+                    }</li>
                 </ul>
                 <h1><Link to="/">StoryForge</Link></h1>
             </nav>
@@ -60,6 +93,85 @@
     class Footer extends React.Component {
         render () { return (
             <div id="footer" className="panel">&copy; 2016 Jon Pawelko</div>
+        )}
+    }
+
+    class LoginPage extends React.Component {
+        constructor (props) {
+            super(props);
+            this.state = {};
+
+            bindToAuth(this);
+
+            this.handleSubmit = this.handleSubmit.bind(this);
+        }
+
+        handleSubmit (event) {
+            console.log( 'LoginPage.handleSubmit' );
+            event.preventDefault();
+            let email    = event.target.email.value;
+            let password = event.target.password.value;
+            AUTH.signInWithEmailAndPassword( email, password ).catch( function (error) {
+                console.log( '*** error: ', error );
+            });
+        }
+
+        render () { return (
+            <div className="panel">
+                <h2>Login</h2>
+            { this.state.user ?
+                <p>You are logged in.</p>
+            :
+                <form onSubmit={ this.handleSubmit }>
+                    <label>Email</label> <input type="email" name="email" required />
+                    <label>Password</label> <input type="password" name="password" required />
+                    <button type="submit">Submit</button>
+                    <p><Link to="/signup">Sign up for a new account.</Link></p>
+                </form>
+            }
+            </div>
+        )}
+    }
+
+    class SignUpPage extends React.Component {
+        constructor (props) {
+            super(props);
+            this.state = {};
+
+            bindToAuth(this);
+
+            this.handleSubmit = this.handleSubmit.bind(this);
+        }
+
+        handleSubmit (event) {
+            console.log( 'SignUpPage.handleSubmit' );
+            event.preventDefault();
+
+            let displayName = event.target.displayName.value;
+            let email       = event.target.email.value;
+            let password    = event.target.password.value;
+
+            AUTH.createUserWithEmailAndPassword( email, password ).then( function (user) {
+                user.updateProfile({ displayName: displayName });
+            }, function (error) {
+                console.log( '*** error: ', error );
+            });
+        }
+
+        render () { return (
+            <div className="panel">
+                <h2>Sign Up</h2>
+            { this.state.user ?
+                <p>You are logged in.</p>
+            :
+                <form onSubmit={ this.handleSubmit }>
+                    <label>Name</label> <input type="text" name="displayName" required />
+                    <label>Email</label> <input type="email" name="email" required />
+                    <label>Password</label> <input type="password" name="password" required />
+                    <button type="submit">Submit</button>
+                </form>
+            }
+            </div>
         )}
     }
 
@@ -155,7 +267,7 @@
             this.state = { loaded: false };
 
             // load story
-            this.query = db.ref('stories').orderByChild('slug').equalTo(this.props.params.slug);
+            this.query = DB.ref('stories').orderByChild('slug').equalTo(this.props.params.slug);
             this.query.on( 'value', function( snapshot ) {
                 this.setState( Object.values(snapshot.val())[0] );
                 this.setState({ loaded: true });
@@ -205,7 +317,7 @@
         loadStoryNode (id) {
             if (this.query) this.query.off();  // first cancel previous subscription
 
-            this.query = db.ref( `story_nodes/${id}` );
+            this.query = DB.ref( `story_nodes/${id}` );
             this.query.on( 'value', function( snapshot ) {
                 console.log( `StoryNodePanel(${id}) -> data received: `, snapshot.val() );
                 let newState = snapshot.val();
@@ -242,7 +354,7 @@
         }
 
         componentWillMount () {
-            this.query = db.ref('stories');
+            this.query = DB.ref('stories');
             if (this.props.author) {
                 this.query = this.query.orderByChild('author').equalTo(this.props.author);
             } else if (this.props.recent) {
