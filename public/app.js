@@ -92,7 +92,7 @@
         render () { return (
             <div className="panel">
                 <h2>New Stories</h2>
-                <StoryList recent="3" />
+                <StoryList recent={3} />
             </div>
         )}
     }
@@ -166,7 +166,7 @@
             this.query.off();
         }
 
-        render () { if (!this.state.loaded) return <LoaderPanel />; console.log(`StoryPage.render`); return (
+        render () { if (!this.state.loaded) return <LoaderPanel />; console.log( `StoryPage.render` ); return (
             <div>
                 <StoryHeaderPanel {...this.state} />
                 <StoryNodePanel params={{ id: this.state.first_node_id }} pathname={ this.props.pathname } />
@@ -188,7 +188,7 @@
     class StoryNodePanel extends React.Component {
         constructor (props) {
             super(props);
-            console.log(`StoryNodePanel(${this.props.params.id})`);
+            console.log( `StoryNodePanel(${this.props.params.id})` );
             this.state = {
                 content: 'loading ...',
                 options: {}
@@ -198,7 +198,7 @@
         }
 
         componentWillReceiveProps (nextProps) {
-            console.log(`StoryNodePanel(${this.props.params.id}).componentWillReceiveProps: `, nextProps);
+            console.log( `StoryNodePanel(${this.props.params.id}).componentWillReceiveProps: `, nextProps );
             if (nextProps.params.id != this.props.params.id) this.loadStoryNode(nextProps.params.id);
         }
 
@@ -207,7 +207,7 @@
 
             this.query = db.ref( `story_nodes/${id}` );
             this.query.on( 'value', function( snapshot ) {
-                console.log(`StoryNodePanel(${id}) -> data received: `, snapshot.val());
+                console.log( `StoryNodePanel(${id}) -> data received: `, snapshot.val() );
                 let newState = snapshot.val();
                 if (!newState.options) newState.options = {};
                 this.setState( newState );
@@ -218,7 +218,7 @@
             this.query.off();
         }
 
-        render () { console.log(`StoryNodePanel(${this.props.params.id}).render`); return (
+        render () { console.log( `StoryNodePanel(${this.props.params.id}).render` ); return (
             <div>
                 <div className="panel">
                     <div className="node-content">{ this.state.content }</div>
@@ -246,7 +246,7 @@
             if (this.props.author) {
                 this.query = this.query.orderByChild('author').equalTo(this.props.author);
             } else if (this.props.recent) {
-                this.query = this.query.orderByChild('created_at').limitToLast(3);
+                this.query = this.query.orderByChild('created_at').limitToLast(this.props.recent);
             }
 
             this.query.on( 'child_added', function( snapshot ) {
