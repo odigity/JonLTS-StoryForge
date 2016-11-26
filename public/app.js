@@ -11,6 +11,12 @@
     let AUTH = firebase.auth(APP);
     let DB   = firebase.database(APP);
 
+    let PROFILES = {};
+    DB.ref('users').on( 'value', function( snapshot ) {
+        PROFILES = snapshot.val()
+    });
+
+
     /* React-Router Imports */
 
     let BrowserRouter   = ReactRouter.BrowserRouter,
@@ -20,14 +26,8 @@
 
     /* Utility Functions */
 
-    function valWithID (snapshot) {
-        let val = snapshot.val();
-        val._id = snapshot.key;
-        return val;
-    }
-
     function bindToAuth (that) {
-        AUTH.onAuthStateChanged( function (user) {
+        that.unbindAuth = AUTH.onAuthStateChanged( function (user) {
             if (user) {
 console.log( 'onAuthStateChanged -> signed in' );
                 that.setState({ user: user });
@@ -36,6 +36,24 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
                 that.setState({ user: null });
             }
         });
+    }
+
+    function displayName (uid) {
+        return PROFILES[uid] ? PROFILES[uid].displayName : '';
+    }
+
+    function valWithID (snapshot) {
+        let val = snapshot.val();
+        val._id = snapshot.key;
+        return val;
+    }
+
+    /* Utility Components */
+
+    class LoaderPanel extends React.Component {
+        render () { return (
+            <div className="panel">Loading ...</div>
+        )}
     }
 
     /* Layout */
@@ -48,6 +66,7 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
                 <Match pattern="/about"           component={ AboutPage         } />
                 <Match pattern="/browse"          component={ BrowseStoriesPage } />
                 <Match pattern="/login"           component={ LoginPage         } />
+                <Match pattern="/new"             component={ NewStoryPage      } />
                 <Match pattern="/signup"          component={ SignUpPage        } />
                 <Match pattern="/authors/:author" component={ AuthorPage        } />
                 <Match pattern="/stories/:slug"   component={ StoryPage         } />
@@ -76,8 +95,8 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
             <nav id="header">
                 <ul>
                     <li><Link to="/browse">Browse Stories</Link></li>
-                    { this.state.user && <li><a href="#">My Stories</a></li> }
-                    { this.state.user && <li><a href="#">New Story</a></li> }
+                    { this.state.user && <li><Link to={ `/authors/${this.state.user.uid}` }>My Stories</Link></li> }
+                    { this.state.user && <li><Link to="/new">New Story</Link></li> }
                     <li><Link to="/about">About</Link></li>
                     <li>{ this.state.user ?
                         <a href="#" onClick={ this.handleLogoutClick }>Logout</a>
@@ -96,6 +115,8 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
         )}
     }
 
+    /* Page -- Login */
+
     class LoginPage extends React.Component {
         constructor (props) {
             super(props);
@@ -104,6 +125,10 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
             bindToAuth(this);
 
             this.handleSubmit = this.handleSubmit.bind(this);
+        }
+
+        componentWillUnmount () {
+            this.unbindAuth();
         }
 
         handleSubmit (event) {
@@ -133,6 +158,8 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
         )}
     }
 
+    /* Page -- Sign Up */
+
     class SignUpPage extends React.Component {
         constructor (props) {
             super(props);
@@ -141,6 +168,10 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
             bindToAuth(this);
 
             this.handleSubmit = this.handleSubmit.bind(this);
+        }
+
+        componentWillUnmount () {
+            this.unbindAuth();
         }
 
         handleSubmit (event) {
@@ -152,7 +183,7 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
             let password    = event.target.password.value;
 
             AUTH.createUserWithEmailAndPassword( email, password ).then( function (user) {
-                user.updateProfile({ displayName: displayName });
+                DB.ref(`/users/${user.uid}`).set({ displayName: displayName });
             }, function (error) {
                 console.log( '*** error: ', error );
             });
@@ -172,14 +203,6 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
                 </form>
             }
             </div>
-        )}
-    }
-
-    /* Utility */
-
-    class LoaderPanel extends React.Component {
-        render () { return (
-            <div className="panel">Loading ...</div>
         )}
     }
 
@@ -245,7 +268,7 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
     class AuthorProfilePanel extends React.Component {
         render () { return (
             <div className="panel">
-                <h2>Profile for { this.props.author }</h2>
+                <h2>Profile for { displayName(this.props.author) }</h2>
             </div>
         )}
     }
@@ -291,7 +314,10 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
             <div className="panel story-page clearfix">
                 <img src="/story.png" />
                 <h2>{ this.props.title }</h2>
-                <h3>by <Link to={ `/authors/${this.props.author}` }>{ this.props.author }</Link>, started on { this.props.created_at } ({ this.props.node_count } nodes)</h3>
+                <h3>
+                    by <Link to={ `/authors/${this.props.author}` }>{ displayName(this.props.author) }</Link>,
+                    started on { this.props.created_at } ({ this.props.node_count } nodes)
+                </h3>
                 <p>{ this.props.description }</p>
             </div>
         )}
@@ -345,6 +371,34 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
         )}
     }
 
+    /* Page -- New Story */
+
+    class NewStoryPage extends React.Component {
+        constructor (props) {
+            super(props);
+            this.state = {};
+
+            this.handleSubmit = this.handleSubmit.bind(this);
+        }
+
+        handleSubmit (event) {
+            console.log( 'NewStoryPage.handleSubmit' );
+            event.preventDefault();
+
+//            let displayName = event.target.displayName.value;
+        }
+
+        render () { return (
+            <div className="panel new-story">
+                <h2>New Story</h2>
+                <form onSubmit={ this.handleSubmit }>
+                    <label>Title</label> <input type="text" name="title" required />
+                    <button type="submit">Submit</button>
+                </form>
+            </div>
+        )}
+    }
+
     /* Components */
 
     class StoryList extends React.Component {
@@ -387,7 +441,7 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
                 <img src="/story.png" />
                 <h3>
                     <Link to={ `/stories/${this.props.slug}` }>{ this.props.title }</Link>
-                    &nbsp;by <Link to={ `/authors/${this.props.author}` }>{ this.props.author }</Link>
+                    &nbsp;by <Link to={ `/authors/${this.props.author}` }>{ displayName(this.props.author) }</Link>
                 </h3>
                 <h4>Started on { this.props.created_at } &mdash; { this.props.node_count } nodes</h4>
                 <p>{ this.props.description }</p>
