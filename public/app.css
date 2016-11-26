@@ -114,3 +114,12 @@ nav a:hover {
     margin:             0;
 }
 
+.story-page img {
+    float:              right;
+    height:             18em;
+    width:              24em;
+}
+
+.node-content {
+}
+
