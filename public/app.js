@@ -10,12 +10,7 @@
     });
     let AUTH = firebase.auth(APP);
     let DB   = firebase.database(APP);
-
     let PROFILES = {};
-    DB.ref('users').on( 'value', function( snapshot ) {
-        PROFILES = snapshot.val()
-    });
-
 
     /* React-Router Imports */
 
@@ -29,10 +24,10 @@
     function bindToAuth (that) {
         that.unbindAuth = AUTH.onAuthStateChanged( function (user) {
             if (user) {
-console.log( 'onAuthStateChanged -> signed in' );
+                console.log( 'onAuthStateChanged -> signed in' );
                 that.setState({ user: user });
             } else {
-console.log( 'onAuthStateChanged -> NOT signed in' );
+                console.log( 'onAuthStateChanged -> NOT signed in' );
                 that.setState({ user: null });
             }
         });
@@ -59,7 +54,18 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
     /* Layout */
 
     class App extends React.Component {
-        render () { return (
+        constructor (props) {
+            super(props);
+            this.state = {};
+
+            DB.ref('users').on( 'value', function( snapshot ) {
+                console.log( 'PROFILES updated' );
+                this.setState({ profiles_update_at: Date.now() })
+                PROFILES = snapshot.val()
+            }.bind(this));
+        }
+
+        render () { console.log( 'App.render' ); return (
             <div id="app">
                 <Header />
                 <Match pattern="/"                component={ HomePage          } exactly />
@@ -310,7 +316,7 @@ console.log( 'onAuthStateChanged -> NOT signed in' );
     }
 
     class StoryHeaderPanel extends React.Component {
-        render () { return (
+        render () { console.log( `StoryHeaderPanel.render` ); return (
             <div className="panel story-page clearfix">
                 <img src="/story.png" />
                 <h2>{ this.props.title }</h2>
