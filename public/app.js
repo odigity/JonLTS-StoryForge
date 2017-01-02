@@ -58,7 +58,7 @@
             super(props);
             this.state = {};
 
-            DB.ref('users').on( 'value', function( snapshot ) {
+            DB.ref('users').on( 'value', function ( snapshot ) {
                 console.log( 'PROFILES updated' );
                 this.setState({ profiles_update_at: Date.now() })
                 PROFILES = snapshot.val()
@@ -68,14 +68,14 @@
         render () { console.log( 'App.render' ); return (
             <div id="app">
                 <Header />
-                <Match pattern="/"                component={ HomePage          } exactly />
-                <Match pattern="/about"           component={ AboutPage         } />
-                <Match pattern="/browse"          component={ BrowseStoriesPage } />
-                <Match pattern="/login"           component={ LoginPage         } />
-                <Match pattern="/new"             component={ NewStoryPage      } />
-                <Match pattern="/signup"          component={ SignUpPage        } />
-                <Match pattern="/authors/:author" component={ AuthorPage        } />
-                <Match pattern="/stories/:slug"   component={ StoryPage         } />
+                <Match pattern="/"                      component={ HomePage          } exactly />
+                <Match pattern="/about"                 component={ AboutPage         } />
+                <Match pattern="/browse"                component={ BrowseStoriesPage } />
+                <Match pattern="/login"                 component={ LoginPage         } />
+                <Match pattern="/new"                   component={ NewStoryPage      } />
+                <Match pattern="/signup"                component={ SignUpPage        } />
+                <Match pattern="/authors/:author"       component={ AuthorPage        } />
+                <Match pattern="/stories/:slug/:nodes?" component={ StoryPage } />
                 <Footer />
             </div>
         )}
@@ -297,7 +297,8 @@
 
             // load story
             this.query = DB.ref('stories').orderByChild('slug').equalTo(this.props.params.slug);
-            this.query.on( 'value', function( snapshot ) {
+            this.query.on( 'value', function ( snapshot ) {
+                console.log( 'StoryPage snapshot: ', snapshot.val() );
                 this.setState( Object.values(snapshot.val())[0] );
                 this.setState({ loaded: true });
             }.bind(this));
@@ -307,12 +308,26 @@
             this.query.off();
         }
 
-        render () { if (!this.state.loaded) return <LoaderPanel />; console.log( `StoryPage.render` ); return (
-            <div>
-                <StoryHeaderPanel {...this.state} />
-                <StoryNodePanel params={{ id: this.state.first_node_id }} pathname={ this.props.pathname } />
-            </div>
-        )}
+        appendNode (basepath, node) {
+            return (basepath.charAt(basepath.length - 1) === '/') ? `${basepath}${node}` : `${basepath}-${node}` ;
+        }
+
+        render () { console.log( `StoryPage.render` );
+            if (!this.state.loaded) return <LoaderPanel />;
+
+            let basepath = `/stories/${this.props.params.slug}/`;
+            let nodelist = this.props.params.nodes ? this.props.params.nodes.split('-') : [];
+
+            return (
+                <div>
+                    <StoryHeaderPanel {...this.state} />
+                    <StoryNodePanel key={this.state.first_node_id} id={this.state.first_node_id} basepath={basepath} appender={this.appendNode} />
+                    { nodelist.map( (node) =>
+                        <StoryNodePanel key={node} id={node} basepath={basepath = this.appendNode(basepath, node)} appender={this.appendNode} />
+                    ) }
+                </div>
+            )
+        }
     }
 
     class StoryHeaderPanel extends React.Component {
@@ -332,18 +347,18 @@
     class StoryNodePanel extends React.Component {
         constructor (props) {
             super(props);
-            console.log( `StoryNodePanel(${this.props.params.id})` );
+            console.log( `StoryNodePanel(${this.props.id})` );
             this.state = {
                 content: 'loading ...',
                 options: {}
             };
 
-            this.loadStoryNode(this.props.params.id);
+            this.loadStoryNode(this.props.id);
         }
 
         componentWillReceiveProps (nextProps) {
-            console.log( `StoryNodePanel(${this.props.params.id}).componentWillReceiveProps: `, nextProps );
-            if (nextProps.params.id != this.props.params.id) this.loadStoryNode(nextProps.params.id);
+            console.log( `StoryNodePanel(${this.props.id}).componentWillReceiveProps: `, nextProps );
+            if (nextProps.id != this.props.id) this.loadStoryNode(nextProps.id);
         }
 
         loadStoryNode (id) {
@@ -362,17 +377,16 @@
             this.query.off();
         }
 
-        render () { console.log( `StoryNodePanel(${this.props.params.id}).render` ); return (
+        render () { console.log( `StoryNodePanel(${this.props.id}).render` ); return (
             <div>
                 <div className="panel">
                     <div className="node-content">{ this.state.content }</div>
                     <ul>
                     { Object.entries(this.state.options).map( (entry) =>
-                        <li key={ entry[0] }><Link to={ `${this.props.pathname}/${entry[0]}` }>{ entry[1] }</Link></li>
-                    )}
+                        <li key={ entry[0] }><Link to={ this.props.appender(this.props.basepath, entry[0]) }>{ entry[1] }</Link></li>
+                    ) }
                     </ul>
                 </div>
-                <Match pattern={`${this.props.pathname}/:id`} component={StoryNodePanel} />
             </div>
         )}
     }
