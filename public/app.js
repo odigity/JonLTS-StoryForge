@@ -10,7 +10,120 @@
     });
     let AUTH = firebase.auth(APP);
     let DB   = firebase.database(APP);
-    let PROFILES = {};
+
+    /* Redux Store -- Auth */
+
+    const auth_reducer = ( state = null, action ) => {
+        switch (action.type) {
+            case 'USER_SIGNED_IN':  return action.user.uid;
+            case 'USER_SIGNED_OUT': return null;
+            default:                return state;
+        }
+    }
+
+    // bind Firebase auth state
+    AUTH.onAuthStateChanged( (user) => {
+        if (user) {
+            console.log( 'onAuthStateChanged -> signed in' );
+            STORE.dispatch({ type: 'USER_SIGNED_IN', user: user });
+        } else {
+            console.log( 'onAuthStateChanged -> NOT signed in' );
+            STORE.dispatch({ type: 'USER_SIGNED_OUT' });
+        }
+    });
+
+    // helpers
+    const current_user = () => STORE.getState().auth;
+
+    /* Redux Store -- Profiles */
+
+    const profiles_reducer = ( state = {}, action ) => {
+        switch (action.type) {
+            case 'PROFILES_IMPORT':     return action.profiles;
+            case 'PROFILE_ADDED':       return { ...state, [action.id]: action.profile };
+            case 'PROFILE_CHANGED':     return { ...state, [action.id]: action.profile };
+            case 'PROFILE_REMOVED':
+                let newState = { ...state };
+                delete newState[action.id];
+                return newState;
+            default:                    return state;
+        }
+    }
+
+    // bind db.profiles
+    DB.ref('users').once( 'value', ( snapshot ) => {
+        console.log( 'DB.users.on(value) -> ', snapshot.val() );
+        STORE.dispatch({ type: 'PROFILES_IMPORT', profiles: snapshot.val() });
+    } );
+    DB.ref('users').on( 'child_added', ( snapshot ) => {
+        console.log( 'DB.users.on(child_added) -> ', snapshot.key, snapshot.val() );
+        STORE.dispatch({ type: 'PROFILE_ADDED', id: snapshot.key, profile: snapshot.val() });
+    } );
+    DB.ref('users').on( 'child_changed', ( snapshot ) => {
+        console.log( 'DB.users.on(child_changed) -> ', snapshot.key, snapshot.val() );
+        STORE.dispatch({ type: 'PROFILE_CHANGED', id: snapshot.key, profile: snapshot.val() });
+    } );
+    DB.ref('users').on( 'child_removed', ( snapshot ) => {
+        console.log( 'DB.users.on(child_removed) -> ', snapshot.key, snapshot.val() );
+        STORE.dispatch({ type: 'PROFILE_REMOVED', id: snapshot.key });
+    } );
+
+    // helpers
+    const get_display_name = (uid) => {
+        let profile = STORE.getState().profiles[uid];
+        return profile ? profile.display_name : '';
+    }
+    const set_display_name = (uid, display_name) => {
+        DB.ref(`/users/${uid}`).set({ display_name: display_name });
+    }
+
+    /* Redux Store -- Stories */
+
+    const stories_reducer = ( state = {}, action ) => {
+        switch (action.type) {
+            case 'STORIES_IMPORT':      return action.stories;
+            case 'STORY_ADDED':         return { ...state, [action.id]: action.story };
+            case 'STORY_CHANGED':       return { ...state, [action.id]: action.story };
+            case 'STORY_REMOVED':
+                let newState = { ...state };
+                delete newState[action.id];
+                return newState;
+            default:                    return state;
+        }
+    }
+
+    // bind db.stories
+    DB.ref('stories').once( 'value', ( snapshot ) => {
+        console.log( 'DB.stories.on(value) -> ', snapshot.val() );
+        STORE.dispatch({ type: 'STORIES_IMPORT', stories: snapshot.val() });
+    } );
+    DB.ref('stories').on( 'child_added', ( snapshot ) => {
+        console.log( 'DB.stories.on(child_added) -> ', snapshot.key, snapshot.val() );
+        STORE.dispatch({ type: 'STORY_ADDED', id: snapshot.key, story: snapshot.val() });
+    } );
+    DB.ref('stories').on( 'child_changed', ( snapshot ) => {
+        console.log( 'DB.stories.on(child_changed) -> ', snapshot.key, snapshot.val() );
+        STORE.dispatch({ type: 'STORY_CHANGED', id: snapshot.key, story: snapshot.val() });
+    } );
+    DB.ref('stories').on( 'child_removed', ( snapshot ) => {
+        console.log( 'DB.stories.on(child_removed) -> ', snapshot.key, snapshot.val() );
+        STORE.dispatch({ type: 'STORY_REMOVED', id: snapshot.key });
+    } );
+
+    // helpers
+    const get_stories = () => {
+        // STORE.getState().profiles[uid].display_name;
+    }
+
+    /* Redux Store -- Initialization */
+
+    const app_reducer = Redux.combineReducers({
+        auth:       auth_reducer,
+        profiles:   profiles_reducer,
+        stories:    stories_reducer
+    });
+
+    const STORE = Redux.createStore(app_reducer);
 
     /* React-Router Imports */
 
@@ -33,10 +146,6 @@
         });
     }
 
-    function displayName (uid) {
-        return PROFILES[uid] ? PROFILES[uid].displayName : '';
-    }
-
     function valWithID (snapshot) {
         let val = snapshot.val();
         val._id = snapshot.key;
@@ -54,17 +163,6 @@
     /* Layout */
 
     class App extends React.Component {
-        constructor (props) {
-            super(props);
-            this.state = {};
-
-            DB.ref('users').on( 'value', function ( snapshot ) {
-                console.log( 'PROFILES updated' );
-                this.setState({ profiles_update_at: Date.now() })
-                PROFILES = snapshot.val()
-            }.bind(this));
-        }
-
         render () { console.log( 'App.render' ); return (
             <div id="app">
                 <Header />
@@ -82,15 +180,6 @@
     }
 
     class Header extends React.Component {
-        constructor (props) {
-            super(props);
-            this.state = {};
-
-            bindToAuth(this);
-
-            this.handleLogoutClick = this.handleLogoutClick.bind(this)
-        }
-
         handleLogoutClick (event) {
             console.log( 'Header.handleLogoutClick' );
             event.preventDefault();
@@ -101,11 +190,11 @@
             <nav id="header">
                 <ul>
                     <li><Link to="/browse">Browse Stories</Link></li>
-                    { this.state.user && <li><Link to={ `/authors/${this.state.user.uid}` }>My Stories</Link></li> }
-                    { this.state.user && <li><Link to="/new">New Story</Link></li> }
+                    { current_user() && <li><Link to={ `/authors/${current_user()}` }>My Stories</Link></li> }
+                    { current_user() && <li><Link to="/new">New Story</Link></li> }
                     <li><Link to="/about">About</Link></li>
-                    <li>{ this.state.user ?
-                        <a href="#" onClick={ this.handleLogoutClick }>Logout</a>
+                    <li>{ current_user() ?
+                        <a href="#" onClick={ this.handleLogoutClick.bind(this) }>Logout</a>
                     :
                         <Link to="/login">Login</Link>
                     }</li>
@@ -124,19 +213,6 @@
     /* Page -- Login */
 
     class LoginPage extends React.Component {
-        constructor (props) {
-            super(props);
-            this.state = {};
-
-            bindToAuth(this);
-
-            this.handleSubmit = this.handleSubmit.bind(this);
-        }
-
-        componentWillUnmount () {
-            this.unbindAuth();
-        }
-
         handleSubmit (event) {
             console.log( 'LoginPage.handleSubmit' );
             event.preventDefault();
@@ -150,10 +226,10 @@
         render () { return (
             <div className="panel">
                 <h2>Login</h2>
-            { this.state.user ?
+            { current_user() ?
                 <p>You are logged in.</p>
             :
-                <form onSubmit={ this.handleSubmit }>
+                <form onSubmit={ this.handleSubmit.bind(this) }>
                     <label>Email</label> <input type="email" name="email" required />
                     <label>Password</label> <input type="password" name="password" required />
                     <button type="submit">Submit</button>
@@ -167,42 +243,28 @@
     /* Page -- Sign Up */
 
     class SignUpPage extends React.Component {
-        constructor (props) {
-            super(props);
-            this.state = {};
-
-            bindToAuth(this);
-
-            this.handleSubmit = this.handleSubmit.bind(this);
-        }
-
-        componentWillUnmount () {
-            this.unbindAuth();
-        }
-
         handleSubmit (event) {
             console.log( 'SignUpPage.handleSubmit' );
             event.preventDefault();
 
-            let displayName = event.target.displayName.value;
-            let email       = event.target.email.value;
-            let password    = event.target.password.value;
+            let display_name = event.target.display_name.value;
+            let email        = event.target.email.value;
+            let password     = event.target.password.value;
 
-            AUTH.createUserWithEmailAndPassword( email, password ).then( function (user) {
-                DB.ref(`/users/${user.uid}`).set({ displayName: displayName });
-            }, function (error) {
-                console.log( '*** error: ', error );
-            });
+            AUTH.createUserWithEmailAndPassword( email, password ).then(
+                (user)  => { DB.ref(`/users/${user.uid}`).set({ display_name: display_name }) },
+                (error) => { console.log( '*** error: ', error ) }
+            );
         }
 
         render () { return (
             <div className="panel">
                 <h2>Sign Up</h2>
-            { this.state.user ?
+            { current_user() ?
                 <p>You are logged in.</p>
             :
-                <form onSubmit={ this.handleSubmit }>
-                    <label>Name</label> <input type="text" name="displayName" required />
+                <form onSubmit={ this.handleSubmit.bind(this) }>
+                    <label>Name</label> <input type="text" name="display_name" required />
                     <label>Email</label> <input type="email" name="email" required />
                     <label>Password</label> <input type="password" name="password" required />
                     <button type="submit">Submit</button>
@@ -274,7 +336,7 @@
     class AuthorProfilePanel extends React.Component {
         render () { return (
             <div className="panel">
-                <h2>Profile for { displayName(this.props.author) }</h2>
+                <h2>Profile for { get_display_name(this.props.author) }</h2>
             </div>
         )}
     }
@@ -336,7 +398,7 @@
                 <img src="/story.png" />
                 <h2>{ this.props.title }</h2>
                 <h3>
-                    by <Link to={ `/authors/${this.props.author}` }>{ displayName(this.props.author) }</Link>,
+                    by <Link to={ `/authors/${this.props.author}` }>{ get_display_name(this.props.author) }</Link>,
                     started on { this.props.created_at } ({ this.props.node_count } nodes)
                 </h3>
                 <p>{ this.props.description }</p>
@@ -405,7 +467,7 @@
             console.log( 'NewStoryPage.handleSubmit' );
             event.preventDefault();
 
-//            let displayName = event.target.displayName.value;
+// TODO
         }
 
         render () { return (
@@ -461,7 +523,7 @@
                 <img src="/story.png" />
                 <h3>
                     <Link to={ `/stories/${this.props.slug}` }>{ this.props.title }</Link>
-                    &nbsp;by <Link to={ `/authors/${this.props.author}` }>{ displayName(this.props.author) }</Link>
+                    &nbsp;by <Link to={ `/authors/${this.props.author}` }>{ get_display_name(this.props.author) }</Link>
                 </h3>
                 <h4>Started on { this.props.created_at } &mdash; { this.props.node_count } nodes</h4>
                 <p>{ this.props.description }</p>
@@ -471,5 +533,11 @@
 
     /* Start App */
 
-    ReactDOM.render( <BrowserRouter><App /></BrowserRouter>, document.getElementById('root') );
+//    ReactDOM.render( <BrowserRouter><App /></BrowserRouter>, document.getElementById('root') );
+
+    const render = () => ReactDOM.render( <BrowserRouter><App /></BrowserRouter>, document.getElementById('root') );
+    STORE.subscribe(render);
+    render();
+
+
 

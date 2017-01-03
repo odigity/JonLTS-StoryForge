@@ -42,6 +42,38 @@
             "title"         : "Star Wars"
         }
     },
+    "nodes": {
+        "id5" : {
+            "id1": {
+                "content"       : "A long time ago, in a galaxy far, far away...",
+                "created_at"    : "2016-11-08T18:25:43.511Z",
+                "options"       : {
+                    "id2"       : "Join the Rebellion.",
+                    "id3"       : "Stay and farm more moisture."
+                }
+            },
+            "id2": {
+                "content"       : "You're flying down the trench to try to shoot a proton torpedo into the thermal exhaust port.",
+                "created_at"    : "2016-11-08T18:25:43.511Z",
+                "options"       : {
+                    "id4"       : "Use your targeting computer.",
+                    "id5"       : "Turn off your targeting computer and use the force."
+                }
+            },
+            "id3": {
+                "content"       : "You produce 182 gallons of water.",
+                "created_at"    : "2016-11-08T18:25:43.511Z"
+            },
+            "id4": {
+                "content"       : "You failed and died.",
+                "created_at"    : "2016-11-08T18:25:43.511Z"
+            },
+            "id5": {
+                "content"       : "You blow up the Death Star!",
+                "created_at"    : "2016-11-08T18:25:43.511Z"
+            }
+        }
+    },
     "story_nodes": {
         "id1": {
             "content"       : "A long time ago, in a galaxy far, far away...",
@@ -79,16 +111,16 @@
     },
     "users": {
         "1pICfxNXjKPxnSmBjyqo2eb0SWb2": {
-            "displayName"   : "Ofer Nave"
+            "display_name"  : "Ofer Nave"
         },
         "49jnK4TmYDdu6UXQlZKWXTeQWAb2": {
-            "displayName"   : "George Lucas"
+            "display_name"  : "George Lucas"
         },
         "LcCFOR0VXFb4bgJ9m9YcjDAUSm32": {
-            "displayName"   : "J.R.R. Tolkien"
+            "display_name"  : "J.R.R. Tolkien"
         },
         "tO3kxuiIZzUG9VzClBsrKmgugry2": {
-            "displayName"   : "Ayn Rand"
+            "display_name"  : "Ayn Rand"
         }
     }
 }
